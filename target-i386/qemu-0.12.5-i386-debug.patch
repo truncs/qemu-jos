@@ -1,0 +1,24 @@
+diff -ur qemu-kvm-0.12.5+noroms/target-i386/helper.c qemu-kvm-0.12.5+noroms-p/target-i386/helper.c
+--- qemu-kvm-0.12.5+noroms/target-i386/helper.c	2010-07-26 20:43:53.000000000 -0400
++++ qemu-kvm-0.12.5+noroms-p/target-i386/helper.c	2011-05-06 12:07:46.166577003 -0400
+@@ -1354,6 +1354,7 @@
+     target_phys_addr_t paddr;
+     uint32_t page_offset;
+     int page_size;
++    addr += env->segs[R_DS].base;
+ 
+     if (env->cr[4] & CR4_PAE_MASK) {
+         target_ulong pdpe_addr;
+Only in qemu-kvm-0.12.5+noroms-p/target-i386: helper.c.orig
+diff -ur qemu-kvm-0.12.5+noroms/target-i386/translate.c qemu-kvm-0.12.5+noroms-p/target-i386/translate.c
+--- qemu-kvm-0.12.5+noroms/target-i386/translate.c	2010-07-26 20:43:53.000000000 -0400
++++ qemu-kvm-0.12.5+noroms-p/target-i386/translate.c	2011-05-06 12:08:17.226577003 -0400
+@@ -7835,7 +7835,7 @@
+     for(;;) {
+         if (unlikely(!QTAILQ_EMPTY(&env->breakpoints))) {
+             QTAILQ_FOREACH(bp, &env->breakpoints, entry) {
+-                if (bp->pc == pc_ptr &&
++                if (bp->pc == pc_ptr - dc->cs_base &&
+                     !((bp->flags & BP_CPU) && (tb->flags & HF_RF_MASK))) {
+                     gen_debug(dc, pc_ptr - dc->cs_base);
+                     break;

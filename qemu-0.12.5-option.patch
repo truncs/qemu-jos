@@ -1,0 +1,58 @@
+Only in qemu-kvm-0.12.5+noroms-p: qemu-0.10.6-option.patch
+diff -ur qemu-kvm-0.12.5+noroms-q/qemu-options.hx qemu-kvm-0.12.5+noroms-p/qemu-options.hx
+--- qemu-kvm-0.12.5+noroms-q/qemu-options.hx	2011-05-06 12:44:38.066577001 -0400
++++ qemu-kvm-0.12.5+noroms-p/qemu-options.hx	2011-05-06 13:21:51.346577000 -0400
+@@ -1928,6 +1928,17 @@
+ to the specified user.
+ ETEXI
+ 
++DEF("debug-e100", 0, QEMU_OPTION_debug_e100, \
++    "-debug-e100     print E100 debug statements.\n")
++
++DEF("pcap", HAS_ARG, QEMU_OPTION_pcap, \
++    "-pcap file_name     When -net user is enabled, dump packets to file_name.\n")
++STEXI
++@item -pcap @var{file_name}
++When -net user is enabled, dump packets to file_name.
++ETEXI
++
++
+ #if defined(TARGET_SPARC) || defined(TARGET_PPC)
+ DEF("prom-env", HAS_ARG, QEMU_OPTION_prom_env,
+     "-prom-env variable=value\n"
+Only in qemu-kvm-0.12.5+noroms-p: qemu-options.hx~
+diff -ur qemu-kvm-0.12.5+noroms-q/vl.c qemu-kvm-0.12.5+noroms-p/vl.c
+--- qemu-kvm-0.12.5+noroms-q/vl.c	2011-05-06 12:44:38.096577004 -0400
++++ qemu-kvm-0.12.5+noroms-p/vl.c	2011-05-06 13:22:23.236576998 -0400
+@@ -164,6 +164,8 @@
+ 
+ #include "exec-all.h"
+ 
++#include "pcap.h"
++
+ #include "qemu_socket.h"
+ 
+ #include "slirp/libslirp.h"
+@@ -4936,6 +4938,7 @@
+     const char *chroot_dir = NULL;
+     const char *run_as = NULL;
+ #endif
++    extern int e100_debug;
+     CPUState *env;
+     int show_vnc_port = 0;
+ 
+@@ -5316,6 +5319,12 @@
+                 }
+                 ram_size = value;
+                 break;
++	    case QEMU_OPTION_debug_e100:
++		e100_debug = 1;
++		break;
++	    case QEMU_OPTION_pcap:
++		pcap_dump_init(optarg);
++		break;
+             }
+             case QEMU_OPTION_d:
+                 {
+Only in qemu-kvm-0.12.5+noroms-p: vl.c~
+Only in qemu-kvm-0.12.5+noroms-p: vl.c.orig

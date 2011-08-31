@@ -1,0 +1,12 @@
+diff -ur qemu-kvm-0.12.5+noroms-q/monitor.c qemu-kvm-0.12.5+noroms-p/monitor.c
+--- qemu-kvm-0.12.5+noroms-q/monitor.c	2011-05-06 12:44:38.096577004 -0400
++++ qemu-kvm-0.12.5+noroms-p/monitor.c	2011-05-06 12:47:06.836577003 -0400
+@@ -1868,6 +1868,7 @@
+             mem_print(mon, &start, &last_prot, end, prot);
+         }
+     }
++    mem_print(mon, &start, &last_prot, 1024 << 22, 0);
+ }
+ #endif
+ 
+

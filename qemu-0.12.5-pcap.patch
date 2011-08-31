@@ -1,0 +1,134 @@
+diff -Nur qemu-kvm-0.12.5+noroms-q/Makefile.target qemu-kvm-0.12.5+noroms-p/Makefile.target
+--- qemu-kvm-0.12.5+noroms-q/Makefile.target	2011-05-06 12:44:38.096577004 -0400
++++ qemu-kvm-0.12.5+noroms-p/Makefile.target	2011-05-06 13:08:42.236577008 -0400
+@@ -163,7 +163,7 @@
+ # System emulator target
+ ifdef CONFIG_SOFTMMU
+ 
+-obj-y = vl.o async.o monitor.o pci.o pci_host.o pcie_host.o machine.o gdbstub.o
++obj-y = vl.o async.o monitor.o pci.o pci_host.o pcie_host.o machine.o gdbstub.o pcap.o
+ # virtio has to be here due to weird dependency between PCI and virtio-net.
+ # need to fix this properly
+ obj-y += virtio-blk.o virtio-balloon.o virtio-net.o virtio-console.o virtio-pci.o
+diff -Nur qemu-kvm-0.12.5+noroms-q/net.c qemu-kvm-0.12.5+noroms-p/net.c
+--- qemu-kvm-0.12.5+noroms-q/net.c	2011-05-06 12:44:38.056577000 -0400
++++ qemu-kvm-0.12.5+noroms-p/net.c	2011-05-06 13:10:06.186576997 -0400
+@@ -35,6 +35,7 @@
+ #include "sysemu.h"
+ #include "qemu-common.h"
+ #include "qemu_socket.h"
++#include "pcap.h"
+ 
+ static QTAILQ_HEAD(, VLANState) vlans;
+ static QTAILQ_HEAD(, VLANClientState) non_vlan_clients;
+@@ -498,6 +499,7 @@
+     printf("qemu_send_packet_async:\n");
+     hex_dump(stdout, buf, size);
+ #endif
++    pcap_dump(buf, size);
+ 
+     if (sender->link_down || (!sender->peer && !sender->vlan)) {
+         return size;
+diff -Nur qemu-kvm-0.12.5+noroms-q/pcap.c qemu-kvm-0.12.5+noroms-p/pcap.c
+--- qemu-kvm-0.12.5+noroms-q/pcap.c	1969-12-31 19:00:00.000000000 -0500
++++ qemu-kvm-0.12.5+noroms-p/pcap.c	2011-05-06 13:07:27.746577001 -0400
+@@ -0,0 +1,61 @@
++#include <assert.h>
++#include <stdio.h>
++#include <sys/time.h>
++#include <time.h>
++
++#include "pcap.h"
++
++static int started = 0;
++static FILE *cap_file;
++
++static void
++pcap_write(const char *b, int l) {
++	size_t c = fwrite(b, 1, l, cap_file);
++	assert(c == l);
++	fflush(cap_file);
++}
++
++void
++pcap_dump_init(const char *fname) {
++	pcap_hdr_t pcap_hdr;
++
++	if (!fname)
++		fname = "slirp.cap";
++
++	cap_file = fopen(fname, "wb");
++	if (!cap_file) {
++		perror("pcap_dump_init:");
++		return;
++	}
++
++	pcap_hdr.magic_number = PCAP_MAGIC;
++	pcap_hdr.version_major = PCAP_VMAJOR;
++	pcap_hdr.version_minor = PCAP_VMINOR;
++	pcap_hdr.thiszone = 0;
++	pcap_hdr.sigfigs = 0;
++	pcap_hdr.snaplen = 65535;
++	pcap_hdr.network = 1; // Ethernet
++
++	pcap_write((char *)&pcap_hdr, sizeof(pcap_hdr));
++
++	started = 1;
++}
++
++void
++pcap_dump(const uint8_t *pkt, int len) {
++	pcaprec_hdr_t pkt_hdr;
++	struct timeval tv;
++
++	if (!started)
++		return;
++
++	gettimeofday(&tv, 0);
++
++	pkt_hdr.ts_sec = tv.tv_sec;
++	pkt_hdr.ts_usec = tv.tv_usec;
++	pkt_hdr.incl_len = len;
++	pkt_hdr.orig_len = len;
++
++	pcap_write((char *)&pkt_hdr, sizeof(pkt_hdr));
++	pcap_write(pkt, len);
++}
+diff -Nur qemu-kvm-0.12.5+noroms-q/pcap.h qemu-kvm-0.12.5+noroms-p/pcap.h
+--- qemu-kvm-0.12.5+noroms-q/pcap.h	1969-12-31 19:00:00.000000000 -0500
++++ qemu-kvm-0.12.5+noroms-p/pcap.h	2011-05-06 13:07:27.746577001 -0400
+@@ -0,0 +1,34 @@
++#ifndef _PCAP_H_
++#define _PCAP_H_
++
++#include "qemu-common.h"
++
++/*
++ * Used http://wiki.wireshark.org/Development/LibpcapFileFormat to get the pcap file format
++ */
++
++#define PCAP_MAGIC	0xa1b2c3d4
++#define PCAP_VMAJOR	2
++#define PCAP_VMINOR	4
++
++typedef struct pcap_hdr_s {
++	uint32_t magic_number;   /* magic number */
++	uint16_t version_major;  /* major version number */
++	uint16_t version_minor;  /* minor version number */
++	int32_t  thiszone;       /* GMT to local correction */
++	uint32_t sigfigs;        /* accuracy of timestamps */
++	uint32_t snaplen;        /* max length of captured packets, in octets */
++	uint32_t network;        /* data link type */
++} pcap_hdr_t;
++
++typedef struct pcaprec_hdr_s {
++	uint32_t ts_sec;         /* timestamp seconds */
++	uint32_t ts_usec;        /* timestamp microseconds */
++	uint32_t incl_len;       /* number of octets of packet saved in file */
++	uint32_t orig_len;       /* actual length of packet */
++} pcaprec_hdr_t;
++
++void pcap_dump_init(const char *fname);
++void pcap_dump(const uint8_t *pkt, int len);
++
++#endif //_PCAP_H_
